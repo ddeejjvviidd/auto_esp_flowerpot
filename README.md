@@ -13,6 +13,10 @@ This repository contains a code I made in Arduino IDE for ESP32 for my smart sel
 - OLED display with info screens
 - Menu with settings for all the features
 
+## Schemes
+
+<img src="res/ESP32scheme.jpg">
+
 ## Technology used
 
 Whole flower pot body was designed in Fusion 360 and printed on Creality Ender 3 V1, using black PLA+. 
@@ -21,6 +25,7 @@ Water tank was sprayed with clear coat to seal all potentional leaks.
 
 Firmware was developed in Arduino IDE. Flower pot uses an ESP32-DevKitC 38pin. 
 
+## Final product v1
 
 <img src="https://github.com/user-attachments/assets/fe158988-56d6-4b79-92fe-65a1defdb861" width="450px">
 <br>
