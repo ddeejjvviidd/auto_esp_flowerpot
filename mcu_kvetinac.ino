@@ -37,11 +37,13 @@
 #define MANUAL_WATERING_STEP 25
 #define MANUAL_MAX_WATERING 200
 
-// --------------- GPIO DEFINES ---------------
-#define b1 33 // <
-#define b2 32 // >
-#define b3 25 // ok / enter menu
-#define b4 26 // back / manual watering / wake
+//======================================
+//            GPIO DEFINES
+//======================================
+#define b1 25 // <
+#define b2 26 // >
+#define b3 27 // ok / enter menu
+#define b4 14 // back / manual watering / wake
 
 #define LEFT_BUTTON b1_push
 #define RIGHT_BUTTON b2_push
@@ -49,24 +51,26 @@
 #define MENU_BUTTON b3_push
 #define BACK_BUTTON b4_push
 
-#define OLED_SDA 21 // yellow cable
-#define OLED_SCL 22 // orange cable
+#define OLED_SDA 21 // blue cable
+#define OLED_SCL 22 // white cable
+#define OLED_RES 19 // yellow cable
+#define OLED_DC 18 // yellow cable
 
-#define RTC_SDA 16 // blau cable
-#define RTC_SCL 17 // green cable
+#define RTC_SDA 160 // blau cable
+#define RTC_SCL 170 // green cable
 
-#define SOIL_SENSOR_PIN 34
+#define SOIL_SENSOR_PIN 340
 
-#define DHT_PIN 4 
+#define DHT_PIN 40 
 #define DHT_TYPE DHT11
 
-#define BATTERY_VCC 35
+#define BATTERY_VCC 350
 
 #define LED1 2
-#define LED2 13
+#define LED2 4
 
-#define PUMP_RELAY 14
-#define TANK_SENSOR 15
+#define PUMP_RELAY 140
+#define TANK_SENSOR 150
 
 #define MENU_SCROLL_INTERVAL (20UL * 1000UL) // 10 seconds
 
@@ -76,10 +80,8 @@
 enum screenStates{
 	TO_INFO_SCREEN,
 	INFO_SCREEN,
-
 	TO_MENU_SCREEN,
 	MENU_SCREEN,
-
 	MANUAL_WATERING
 };
 
@@ -204,13 +206,18 @@ bool rtcFAILED = false;
 
 unsigned long lastPrintMillis = 0; // TODO: delete
 
-// --------------- I2C OLED ---------------
-TwoWire WireOLED = TwoWire(0);
+
+//======================================
+//        SPI DISPLAY SETUP
+//======================================
+
+//TwoWire WireOLED = TwoWire(0);
 
 #define OLED_ADDR 0x3C
-#define SWIDTH 128
-#define SHEIGHT 64
-Adafruit_SSD1306 display(SWIDTH, SHEIGHT, &WireOLED, -1);
+#define SCREEN_WIDTH 128
+#define SCREEN_HEIGHT 64
+//Adafruit_SSD1306 display(SCREEN_WIDTH, SCREEN_HEIGHT, &WireOLED, -1);
+Adafruit_SSD1306 display(SCREEN_WIDTH, SCREEN_HEIGHT, OLED_SDA, OLED_SCL, OLED_DC, OLED_RES, -1);
 // textSize, charW, charH
 // 1				 6			8
 // 2				 12			16
@@ -261,11 +268,12 @@ void setup() {
 	analogSetWidth(12); 
 
 
-	// --------------- I2C OLED INIT ---------------
-	WireOLED.begin(OLED_SDA, OLED_SCL);
-	WireOLED.setClock(100000);
-  if(!display.begin(SSD1306_SWITCHCAPVCC, OLED_ADDR)) {
+	// --------------- SPI OLED INIT ---------------
+	//WireOLED.begin(OLED_SDA, OLED_SCL);
+	//WireOLED.setClock(100000);
+  if(!display.begin(SSD1306_SWITCHCAPVCC, 0x3D)) {
     Serial.println(F("Failed to initialize OLED!"));
+    for(;;);
   } else {
 		display.ssd1306_command(SSD1306_DISPLAYOFF);
 		delay(100);  // small delay to ensure it works
