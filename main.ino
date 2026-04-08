@@ -1,3 +1,11 @@
+/**
+ * @file main.ino
+ * @brief Main file for ESP32-powered smart flowerpot.
+ * @author ddeejjvviidd
+ * @date 2026-04-08
+ * This file contains the core setup and a loop of the functionality.
+ */
+
 #include <Wire.h>
 #include <Adafruit_GFX.h>
 #include <Adafruit_SSD1306.h>
@@ -237,6 +245,14 @@ RTC_DS1307 rtc;
 DHT dht(DHT_PIN, DHT_TYPE);
 
 
+/**
+ * @brief Arduino setup function. Init of all components, peripherals and variables.
+ * Also contains loading animation for OLED. Safety checks are performed for 
+ * RTC module and OLED. Based on RTC availability, some features may be disabled
+ * and user is informed on the display. 
+ * @warning If OLED initialization fails, the system will halt in an infinite loop.
+ * 
+ */
 void setup() {
 
 	// --------------- CORE SETUP ---------------
@@ -386,7 +402,11 @@ void setup() {
 }
 
 
-
+/**
+ * @brief Arduino main loop funtion.
+ * Handles button input, sensor reading, watering logic, display updates, 
+ * screen state management, sleep management.
+ */
 void loop() {
 
 	handleButtons();
@@ -578,6 +598,11 @@ void loop() {
 	}
 }
 
+
+/**
+ * @brief Handles drawing of the main info screen and all of its pages.
+ * Based on the current mainMenuState, different information is drawn on the display.
+ */
 void handleMainMenu() {
   
 	display.clearDisplay();
@@ -709,6 +734,17 @@ void handleMainMenu() {
   display.display();
 }
 
+
+/**
+ * @brief Handles both of the automatic watering modes.
+ * In periodical mode, this function checks last time of watering
+ * and compares it to the current time. If the set period has passed,
+ * watering starts.
+ * In sensor mode, soil moisture is continuously monitored and compared
+ * to the set threshold. If the soil is too dry, watering starts.
+ * @warning This function does not handle the manual watering mode, 
+ * which is triggered whenever by holding the b4 button on the info screen.
+ */
 void handleWatering(){
 
 	if (wateringMode == 1) {
@@ -908,6 +944,20 @@ void handleWatering(){
 	}  
 }
 
+
+/**
+ * @brief This function manages the deep sleep of device. 
+ * If deep sleep is enabled and RTC is functional, the function
+ * sets the device to sleep based on current watering mode.
+ * In periodical mode, the sleep duration is calculated based on
+ * the next scheduled watering time.
+ * In sensor mode, the device always sleeps for 1 hour before
+ * waking up and checking the soil moisture again.
+ * In manual mode, the device goes to sleep indefinitely until
+ * the user wakes it up by pressing the b4 button.
+ * @warning During deep sleep, the device can only be woken up
+ * by the b4 button.
+ */
 void handleSleep(){
 	// pokud je deepSleep == true
 	if (!deepSleep || rtcFAILED) return;
@@ -983,9 +1033,15 @@ void handleSleep(){
 	}
 }
 
+
+/**
+ * @brief Reads the soil moisture senzor value and
+ * stores it in a buffer. Once the buffer is full, the average
+ * soil moisture value is calculated and stored in the soil_moisture variable.
+ */
 void readSoilMoistureADC() {
-	//plne ponoreny ve vode = 1050
-	//mimo vodu a suchy = 1750 u kvetinace senzoru, 2750 u druheho senzoru. Wtf
+	//sensor fully submerged in water = 1050
+	//sensor out of water and dry = 1750
 	int adcValue = analogRead(SOIL_SENSOR_PIN);
 	//Serial.println(adcValue);
 	//if(adcValue < 50 || adcValue > 3950){
@@ -1011,6 +1067,14 @@ void readSoilMoistureADC() {
 	}
 }
 
+
+/**
+ * @brief Converts a given soil moisture percentage to the corresponding ADC value.
+ * The conversion is based on the defined DRY_SOIL and WET_SOIL ADC values.
+ * Higher percentage means wetter soil, which corresponds to a lower ADC value.
+ * @param percent The soil moisture percentage to convert (int 0-100).
+ * @return The corresponding ADC value.
+ */
 int moisturePercentToAdc(int percent) {
 	// jistota je jistota
 	percent = constrain(percent, 0, 100);
@@ -1019,6 +1083,15 @@ int moisturePercentToAdc(int percent) {
 	return DRY_SOIL - ((DRY_SOIL - WET_SOIL) * percent) / 100;
 }
 
+
+/**
+ * @brief Converts an ADC value from the soil moisture sensor to a percentage
+ * representing the soil moisture level.
+ * The conversion is based on the defined DRY_SOIL and WET_SOIL ADC values.
+ * Higher ADC values correspond to drier soil, which results in a lower percentage.
+ * @param adcValue The ADC value to convert (int).
+ * @return The corresponding soil moisture percentage.
+ */
 int adcToMoisturePercent(int adcValue) {
   // Omezit na rozsah
   adcValue = constrain(adcValue, WET_SOIL, DRY_SOIL);
@@ -1027,6 +1100,15 @@ int adcToMoisturePercent(int adcValue) {
   return ((DRY_SOIL - adcValue) * 100) / (DRY_SOIL - WET_SOIL);
 }
 
+
+/**
+ * @brief Reads the battery voltage from the sensor and 
+ * stores it in a buffer. Once the buffer is full, the average
+ * battery voltage is calculated and stored in the battery_voltage variable.
+ * @warning The voltage is calculated based on a linear approximation.
+ * @todo This function is a mess and does not show proper values. Needs
+ * to be reworked and calibrated properly.
+ */
 void readBatteryADC(){
 	int adcValue = analogRead(BATTERY_VCC);
 	battery_adc_buffer[battery_sample_index] = adcValue;
@@ -1062,6 +1144,9 @@ void readBatteryADC(){
 }
 
 
+/**
+ * @brief Handles states of all the buttons, including debounce and long press.
+ */
 void handleButtons() {
 	now = millis();
 
@@ -1119,7 +1204,12 @@ void handleButtons() {
   }
 }
 
-// Funkce pro animaci načítajícího kolečka s tlustšími čarami
+
+/** 
+ * @brief Draws a loading circle on the display. 
+ * @param display Reference to the display object to draw on.
+ * @param step The step in the animation sequence.
+ */
 void drawLoadingCircle(Adafruit_SSD1306& display, int step) {
     display.clearDisplay();
     int radius = 10;  // Poloměr kolečka
