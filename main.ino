@@ -11,7 +11,7 @@
 #if DEBUG_MODE
   #define DEBUG_PRINT(x) Serial.print(x)
   #define DEBUG_PRINTLN(x) Serial.println(x)
-	#define DEBUG_PRINTF(...) Serial.printf(__VA_ARGS__)
+  #define DEBUG_PRINTF(...) Serial.printf(__VA_ARGS__)
   #define DEBUG_BEGIN(x) Serial.begin(x)
 #else
   #define DEBUG_PRINT(x)
