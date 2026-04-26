@@ -6,6 +6,20 @@
  * This file contains the core setup and a loop of the functionality.
  */
 
+#define DEBUG_MODE 0
+
+#if DEBUG_MODE
+  #define DEBUG_PRINT(x) Serial.print(x)
+  #define DEBUG_PRINTLN(x) Serial.println(x)
+	#define DEBUG_PRINTF(...) Serial.printf(__VA_ARGS__)
+  #define DEBUG_BEGIN(x) Serial.begin(x)
+#else
+  #define DEBUG_PRINT(x)
+  #define DEBUG_PRINTLN(x)
+	#define DEBUG_PRINTF(...)
+  #define DEBUG_BEGIN(x)
+#endif
+
 #include <Wire.h>
 #include <Adafruit_GFX.h>
 #include <Adafruit_SSD1306.h>
@@ -64,21 +78,21 @@
 #define OLED_RES 19 // yellow cable
 #define OLED_DC 18 // yellow cable
 
-#define RTC_SDA 160 // blau cable
-#define RTC_SCL 170 // green cable
+#define RTC_SDA 32 // white cable
+#define RTC_SCL 33 // blue cable
 
-#define SOIL_SENSOR_PIN 340
+#define SOIL_SENSOR_PIN 34
 
-#define DHT_PIN 40 
+#define DHT_PIN 13 
 #define DHT_TYPE DHT11
 
-#define BATTERY_VCC 350
+#define BATTERY_VCC 35
 
 #define LED1 2
 #define LED2 4
 
-#define PUMP_RELAY 140
-#define TANK_SENSOR 150
+#define PUMP_RELAY 16
+#define TANK_SENSOR 17
 
 #define MENU_SCROLL_INTERVAL (20UL * 1000UL) // 10 seconds
 
@@ -256,14 +270,14 @@ DHT dht(DHT_PIN, DHT_TYPE);
 void setup() {
 
 	// --------------- CORE SETUP ---------------
-	Serial.begin(9600);
+	DEBUG_BEGIN(9600);
 	//delay(2000);
-	Serial.println("Boot successful.");
+	DEBUG_PRINTLN("Boot successful.");
 	setCpuFrequencyMhz(80);
 
-	Serial.print("CPU running at: ");
-	Serial.print(getCpuFrequencyMhz());
-	Serial.println(" Mhz.");
+	DEBUG_PRINT("CPU running at: ");
+	DEBUG_PRINT(getCpuFrequencyMhz());
+	DEBUG_PRINTLN(" Mhz.");
 
 	// --------------- PIN MODES ---------------
 	pinMode(b1, INPUT_PULLUP);
@@ -288,7 +302,7 @@ void setup() {
 	//WireOLED.begin(OLED_SDA, OLED_SCL);
 	//WireOLED.setClock(100000);
   if(!display.begin(SSD1306_SWITCHCAPVCC, 0x3D)) {
-    Serial.println(F("Failed to initialize OLED!"));
+    DEBUG_PRINTLN(F("Failed to initialize OLED!"));
     for(;;);
   } else {
 		display.ssd1306_command(SSD1306_DISPLAYOFF);
@@ -297,13 +311,13 @@ void setup() {
 		display.clearDisplay();
 		display.setTextSize(defaultTextSize);
 		display.setTextColor(defaultDisplayColor);
-    Serial.println(F("OLED init successful."));
+    DEBUG_PRINTLN(F("OLED init successful."));
 	}
 
 	// --------------- I2C RTC INIT ---------------
   WireRTC.begin(RTC_SDA, RTC_SCL);
 	if (!rtc.begin(&WireRTC)) {
-		Serial.println(F("Failed to initialize RTC!"));
+		DEBUG_PRINTLN(F("Failed to initialize RTC!"));
 		display.clearDisplay();
 		display.setCursor(0,16);
 		display.print("RTC fail");
@@ -314,12 +328,12 @@ void setup() {
 		display.display();
 		delay(2000);
   } else {
-		Serial.println(F("RTC init successful."));
+		DEBUG_PRINTLN(F("RTC init successful."));
 	}
 
 	//if (!rtc.isrunning() && !rtcFAILED) {
-  //  Serial.println(F("RTC was not running, check battery."));
-  //  Serial.println(F("Setting RTC time."));
+  //  DEBUG_PRINTLN(F("RTC was not running, check battery."));
+  //  DEBUG_PRINTLN(F("Setting RTC time."));
 	//	rtc.adjust(DateTime(2004, 5, 14, 0, 0, 0));
   //}
 
@@ -415,16 +429,16 @@ void loop() {
 
 	readBatteryADC();
 
-	if(!digitalRead(TANK_SENSOR)){
+	if(digitalRead(TANK_SENSOR)){
 		digitalWrite(LED2, HIGH);
-		//Serial.println("Empty tank!");
+		//DEBUG_PRINTLN("Empty tank!");
 		digitalWrite(PUMP_RELAY, LOW);
 	} else {
 		digitalWrite(LED2, LOW);
 		//digitalWrite(LED1, LOW);
 	}
 
-	if(battery_voltage < 4.00){
+	if(battery_voltage < 3.40){
 		digitalWrite(LED1, HIGH);
 	} else {
 		digitalWrite(LED1, LOW);
@@ -435,26 +449,26 @@ void loop() {
 	}
 
 	//float batteryVoltage = analogRead(BATTERY_VCC);
-	//Serial.println(batteryVoltage);
+	//DEBUG_PRINTLN(batteryVoltage);
 
 	//float teplota = dht.readTemperature();
   //float vlhkost = dht.readHumidity();
 //
 	//if (isnan(teplota) || isnan(vlhkost)) {
-  //  Serial.println("Chyba při čtení z DHT senzoru!");
+  //  DEBUG_PRINTLN("Chyba při čtení z DHT senzoru!");
   //  return;
   //}
 
-	//Serial.print("Teplota: ");
-  //Serial.print(teplota);
-  //Serial.println(" °C");
+	//DEBUG_PRINT("Teplota: ");
+  //DEBUG_PRINT(teplota);
+  //DEBUG_PRINTLN(" °C");
 //
-  //Serial.print("Vlhkost: ");
-  //Serial.print(vlhkost);
-  //Serial.println(" %");
+  //DEBUG_PRINT("Vlhkost: ");
+  //DEBUG_PRINT(vlhkost);
+  //DEBUG_PRINTLN(" %");
 
-	//if(!digitalRead(TANK_SENSOR)){
-	//	Serial.println("Prazdna nadrz!");
+	//if(digitalRead(TANK_SENSOR)){
+	//	DEBUG_PRINTLN("Prazdna nadrz!");
 	//}
 
 	switch(screenState) {
@@ -495,12 +509,12 @@ void loop() {
 
 			//if(millis() - lastPrintMillis >= 10000) {
 			//	lastPrintMillis = millis();
-			//	Serial.printf("Last watering timestamp: %lu\n", last_watering_timestamp);
-			//	Serial.printf("Next watering should be: %lu\n", last_watering_timestamp + (per_days * 86400UL));
+			//	DEBUG_PRINTF("Last watering timestamp: %lu\n", last_watering_timestamp);
+			//	DEBUG_PRINTF("Next watering should be: %lu\n", last_watering_timestamp + (per_days * 86400UL));
 			//}
 
 			if(b4_pressed){
-				if(!b4_holdActive && digitalRead(TANK_SENSOR)) {
+				if(!b4_holdActive && !digitalRead(TANK_SENSOR)) {
 					b4_holdStart = millis();
 					b4_holdActive = true;
 				} else if (millis() - b4_holdStart >= 1000) {
@@ -549,7 +563,7 @@ void loop() {
 		case MANUAL_WATERING:
 			lastSystemInteraction = millis();
 
-			if(!digitalRead(TANK_SENSOR)) {
+			if(digitalRead(TANK_SENSOR)) {
 				//safety shutoff
 				digitalWrite(PUMP_RELAY, LOW);
 				digitalWrite(LED2, HIGH);
@@ -690,12 +704,13 @@ void handleMainMenu() {
 			break;
 		}
 
-		case BATTERY_INFO:{
+		case BATTERY_INFO: {
 
 			printAlignedText(&display, "Battery", 2, 10, 1, 0);
 
 			char dhtSecondLine[10];
-			snprintf(dhtSecondLine, sizeof(dhtSecondLine), "%.2fV", battery_voltage); // battery_percent
+			//snprintf(dhtSecondLine, sizeof(dhtSecondLine), "%.2fV", battery_voltage); // battery_percent
+			snprintf(dhtSecondLine, sizeof(dhtSecondLine), "%d%%", battery_percent); // battery_percent
     	printAlignedText(&display, dhtSecondLine, 2, 33, 1, 0);
 
 			break;
@@ -760,12 +775,12 @@ void handleWatering(){
 			if(newTarget.unixtime() > now_ts) {
 				// Dnes tento cas jeste nebyl, takze se nastavi timestamp tak, aby se zalevalo dnes
 				last_watering_timestamp = newTarget.unixtime() - (per_days * 86400);
-				Serial.printf("RESET: Nastavuji last_watering_timestamp aby se zalevalo dnes v %02d:%02d:%02d.\nTimestamp: %d.\n", newTarget.hour(), newTarget.minute(), newTarget.second(), last_watering_timestamp);
+				DEBUG_PRINTF("RESET: Nastavuji last_watering_timestamp aby se zalevalo dnes v %02d:%02d:%02d.\nTimestamp: %d.\n", newTarget.hour(), newTarget.minute(), newTarget.second(), last_watering_timestamp);
 			} else {
 				// dnes uz cas byl, po resetu se ale nastavi nejblizsi dalsi hodina a minuta zalevani, bezprostredne dalsi den
 				last_watering_timestamp = newTarget.unixtime() - (per_days * 86400) + 86400;
 
-				Serial.printf("RESET: Jiz je po case dnesniho zalevani, nastavuji zavlazovani bezprostredne na zitra %02d:%02d:%02d.\nTimestamp:", newTarget.hour(), newTarget.minute(), newTarget.second(), last_watering_timestamp);
+				DEBUG_PRINTF("RESET: Jiz je po case dnesniho zalevani, nastavuji zavlazovani bezprostredne na zitra %02d:%02d:%02d.\nTimestamp:", newTarget.hour(), newTarget.minute(), newTarget.second(), last_watering_timestamp);
 			}
 
 			prefs.begin("settings", false);
@@ -781,7 +796,7 @@ void handleWatering(){
 				DateTime next_watering = last_watering + TimeSpan(per_days * 86400);
 
 				if (now_ts >= next_watering.unixtime() && wateringMode == 1) {
-					Serial.printf("Jde se zalevat. Last_watering: %d, Next_watering: %d, Now: %d.\n", last_watering.unixtime(), next_watering.unixtime(), now_ts);
+					DEBUG_PRINTF("Jde se zalevat. Last_watering: %d, Next_watering: %d, Now: %d.\n", last_watering.unixtime(), next_watering.unixtime(), now_ts);
 
 					display.clearDisplay();
 					printAlignedText(&display, "Watering", 2, 24, 1, 0);
@@ -808,7 +823,7 @@ void handleWatering(){
 					digitalWrite(PUMP_RELAY, LOW);
 					periodicalWateringState = PERIODICAL_COMPLETE;
 				} else {
-					if (!digitalRead(TANK_SENSOR)){
+					if (digitalRead(TANK_SENSOR)){
 						digitalWrite(PUMP_RELAY, LOW);
 						digitalWrite(LED2, HIGH);
 
@@ -835,7 +850,7 @@ void handleWatering(){
 					periodicalWateringState = PERIODICAL_COMPLETE;
 					break;
 				}
-				if(digitalRead(TANK_SENSOR)) {
+				if(!digitalRead(TANK_SENSOR)) {
 					//nadrz doplnena
 					digitalWrite(LED2, LOW);
 					digitalWrite(PUMP_RELAY, HIGH);
@@ -854,9 +869,9 @@ void handleWatering(){
 				DateTime newTimestamp(now.year(), now.month(), now.day(), h_watering_time, m_watering_time, 0);
 				last_watering_timestamp = newTimestamp.unixtime(); 
 
-				Serial.printf("Zavlazovani dokonceno. Novy timestamp nastaven na %d\n", last_watering_timestamp);
+				DEBUG_PRINTF("Zavlazovani dokonceno. Novy timestamp nastaven na %d\n", last_watering_timestamp);
 
-				Serial.printf("Dalsi zalevani tak probehne za %d dny.\nJe to ok?\n", per_days);
+				DEBUG_PRINTF("Dalsi zalevani tak probehne za %d dny.\nJe to ok?\n", per_days);
 
 				//prefs.begin("settings", false);
 				//prefs.putUInt("w_ts", last_watering_timestamp);
@@ -869,7 +884,7 @@ void handleWatering(){
 		//sensor based
 
 		if(sampleIndex < 0) {
-			Serial.println("ADC ma nevalidni hodnotu.");
+			DEBUG_PRINTLN("ADC ma nevalidni hodnotu.");
 			return; // nutno pockat, dokud ADC poprve nepoda validni hodnotu
 		}
 
@@ -879,14 +894,14 @@ void handleWatering(){
 				
 				if (millis() - moistureCooldownStartTime < MOISTURE_MODE_COOLDOWN) {
 					// jeste porad nevyprsel cooldown
-					Serial.println("Cooldown.");
+					DEBUG_PRINTLN("Cooldown.");
 					break;
 				}
 
 				if(soil_moisture > adcLowThreshold) {
-					Serial.println("Detekovano zalevani.");
+					DEBUG_PRINTLN("Detekovano zalevani.");
 
-					if (!digitalRead(TANK_SENSOR)) {
+					if (digitalRead(TANK_SENSOR)) {
 						// nadrz je prazdna
 						return;
 					} else {
@@ -911,7 +926,7 @@ void handleWatering(){
 					break;
 				}
 
-				if (!digitalRead(TANK_SENSOR)) {
+				if (digitalRead(TANK_SENSOR)) {
 					digitalWrite(PUMP_RELAY, LOW);
 					digitalWrite(LED2, HIGH);
 					moistureWateringState = MOISTURE_COMPLETE;
@@ -934,7 +949,7 @@ void handleWatering(){
 				break;
 
 			case MOISTURE_COMPLETE:
-				Serial.println("Zalevani dokonceno.");
+				DEBUG_PRINTLN("Zalevani dokonceno.");
 				lastSystemInteraction = millis();
 				digitalWrite(PUMP_RELAY, LOW);
 				moistureCooldownStartTime = millis();
@@ -989,7 +1004,7 @@ void handleSleep(){
 			sleepDurationUs = 3600000000ULL; // 1 hodina
 		} else if (wateringMode == 0) {
 			// MANUAL rezim => spi porad dokud neni vzbuzeno
-			Serial.printf("Jdu spat dokud me nekdo neprobudi\n");
+			DEBUG_PRINTF("Jdu spat dokud me nekdo neprobudi\n");
 			display.clearDisplay();
 			printAlignedText(&display, "Sleep", 2, 10, 1, 0);
 			printAlignedText(&display, "push B4 to wake up", 1, 57, 1, 0);
@@ -1007,7 +1022,7 @@ void handleSleep(){
 			uint64_t sleepDurationSec = sleepDurationUs / 1000000ULL;
 			uint32_t hours = sleepDurationSec / 3600;
 			uint32_t minutes = (sleepDurationSec % 3600) / 60;
-			Serial.printf("Jdu spat na %d hodin\n", hours);
+			DEBUG_PRINTF("Jdu spat na %d hodin\n", hours);
 
 			char sleepText[20];
 			if(hours >= 1) {
@@ -1043,7 +1058,7 @@ void readSoilMoistureADC() {
 	//sensor fully submerged in water = 1050
 	//sensor out of water and dry = 1750
 	int adcValue = analogRead(SOIL_SENSOR_PIN);
-	//Serial.println(adcValue);
+	//DEBUG_PRINTLN(adcValue);
 	//if(adcValue < 50 || adcValue > 3950){
 	//	//issue;
 	//}
@@ -1060,10 +1075,10 @@ void readSoilMoistureADC() {
 		}
 		soil_moisture = sum / SAMPLE_COUNT;
 
-		//Serial.printf("Prumer: %d, ADC skutecne: %d\n", soil_moisture, adcValue);
-		//Serial.print("Soil: ");
-		//Serial.println(soil_moisture);
-		//Serial.printf("Low: %d, high: %d, lowADC: %d, highADC: %d\n", lowThreshold, highThreshold, adcLowThreshold, adcHighThreshold);
+		//DEBUG_PRINTF("Prumer: %d, ADC skutecne: %d\n", soil_moisture, adcValue);
+		//DEBUG_PRINT("Soil: ");
+		//DEBUG_PRINTLN(soil_moisture);
+		//DEBUG_PRINTF("Low: %d, high: %d, lowADC: %d, highADC: %d\n", lowThreshold, highThreshold, adcLowThreshold, adcHighThreshold);
 	}
 }
 
@@ -1110,37 +1125,39 @@ int adcToMoisturePercent(int adcValue) {
  * to be reworked and calibrated properly.
  */
 void readBatteryADC(){
-	int adcValue = analogRead(BATTERY_VCC);
-	battery_adc_buffer[battery_sample_index] = adcValue;
-	battery_sample_index++;
-	//if(adcValue < 50 || adcValue > 3950){
-	//	//issue;
-	//}
+  int adcValue = analogRead(BATTERY_VCC);
+  battery_adc_buffer[battery_sample_index] = adcValue;
+  battery_sample_index++;
 
-	if (battery_sample_index >= BATTERY_SAMPLE_COUNT) {
-		battery_sample_index = 0;
+  if (battery_sample_index >= BATTERY_SAMPLE_COUNT) {
+    battery_sample_index = 0;
 
-		long sum = 0;
-		for (int i = 0; i < BATTERY_SAMPLE_COUNT; i++) {
-			sum += battery_adc_buffer[i];
-		}
-		int avg_adc = sum / BATTERY_SAMPLE_COUNT;
+    long sum = 0;
+    for (int i = 0; i < BATTERY_SAMPLE_COUNT; i++) {
+      sum += battery_adc_buffer[i];
+    }
+    int avg_adc = sum / BATTERY_SAMPLE_COUNT;
 
-		float v_adc = (avg_adc / 4095.0) * 3.3;
+    // 1. Převod ADC hodnoty na napětí na pinu (předpoklad 12bit rozlišení a 3.3V logika)
+    float v_adc = (avg_adc / 4095.0) * 3.3;
 
-		battery_voltage = (v_adc * 2.0)+0.10;
+    // 2. Přepočet přes odporový dělič modulu (typicky 1:5)
+    // Pokud je hodnota trochu nepřesná, uprav číslo 5.0 nahoru nebo dolů (např. 5.12),
+    // abys dorovnal toleranci rezistorů na modulu a nepřesnost vnitřní reference ESP32.
+    battery_voltage = v_adc * 6.06; 
 
-		battery_percent = (battery_voltage - 3.0) / (4.2 - 3.0) * 100.0;
-		battery_percent = constrain(battery_percent, 0, 99);
+    // Percent count (Li-Ion 3.0V to 4.2V)
+    battery_percent = (battery_voltage - 3.0) / (4.2 - 3.0) * 100.0;
+    battery_percent = constrain(battery_percent, 0, 99);
 
-		// debug výstup
-		//Serial.print("Battery voltage: ");
-		//Serial.print(battery_voltage);
-		//Serial.print(" V, ");
-		//Serial.print("Battery level: ");
-		//Serial.print(battery_percent);
-		//Serial.println(" %");
-	}
+    // debug výstup
+    DEBUG_PRINT("Battery voltage: ");
+    DEBUG_PRINT(battery_voltage);
+    DEBUG_PRINT(" V, ");
+    DEBUG_PRINT("Battery level: ");
+    DEBUG_PRINT(battery_percent);
+    DEBUG_PRINTLN(" %");
+  }
 }
 
 
@@ -1162,7 +1179,7 @@ void handleButtons() {
 		lastInteraction = millis();
 		lastSystemInteraction = millis();
 		lastMenuScrollTime = millis();
-    if (b1_push) Serial.println("b1 pressed");
+    if (b1_push) DEBUG_PRINTLN("b1 pressed");
   } else {
     b1_push = false;
   }
@@ -1174,7 +1191,7 @@ void handleButtons() {
 		lastInteraction = millis();
 		lastSystemInteraction = millis();
 		lastMenuScrollTime = millis();
-    if (b2_push) Serial.println("b2 pressed");
+    if (b2_push) DEBUG_PRINTLN("b2 pressed");
   } else {
     b2_push = false;
   }
@@ -1186,7 +1203,7 @@ void handleButtons() {
 		lastInteraction = millis();
 		lastSystemInteraction = millis();
 		lastMenuScrollTime = millis();
-    if (b3_push) Serial.println("b3 pressed");
+    if (b3_push) DEBUG_PRINTLN("b3 pressed");
   } else {
     b3_push = false;
   }
@@ -1198,7 +1215,7 @@ void handleButtons() {
 		lastInteraction = millis();
 		lastSystemInteraction = millis();
 		lastMenuScrollTime = millis();
-    if (b4_push) Serial.println("b4 pressed");
+    if (b4_push) DEBUG_PRINTLN("b4 pressed");
   } else {
     b4_push = false;
   }
