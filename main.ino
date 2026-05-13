@@ -1,3 +1,25 @@
+/**
+ * @file main.ino
+ * @brief Main file for ESP32-powered smart flowerpot.
+ * @author ddeejjvviidd
+ * @date 2026-04-08
+ * This file contains the core setup and a loop of the functionality.
+ */
+
+#define DEBUG_MODE 0
+
+#if DEBUG_MODE
+  #define DEBUG_PRINT(x) Serial.print(x)
+  #define DEBUG_PRINTLN(x) Serial.println(x)
+  #define DEBUG_PRINTF(...) Serial.printf(__VA_ARGS__)
+  #define DEBUG_BEGIN(x) Serial.begin(x)
+#else
+  #define DEBUG_PRINT(x)
+  #define DEBUG_PRINTLN(x)
+	#define DEBUG_PRINTF(...)
+  #define DEBUG_BEGIN(x)
+#endif
+
 #include <Wire.h>
 #include <Adafruit_GFX.h>
 #include <Adafruit_SSD1306.h>
@@ -37,11 +59,13 @@
 #define MANUAL_WATERING_STEP 25
 #define MANUAL_MAX_WATERING 200
 
-// --------------- GPIO DEFINES ---------------
-#define b1 33 // <
-#define b2 32 // >
-#define b3 25 // ok / enter menu
-#define b4 26 // back / manual watering / wake
+//======================================
+//            GPIO DEFINES
+//======================================
+#define b1 25 // <
+#define b2 26 // >
+#define b3 27 // ok / enter menu
+#define b4 14 // back / manual watering / wake
 
 #define LEFT_BUTTON b1_push
 #define RIGHT_BUTTON b2_push
@@ -49,24 +73,26 @@
 #define MENU_BUTTON b3_push
 #define BACK_BUTTON b4_push
 
-#define OLED_SDA 21 // yellow cable
-#define OLED_SCL 22 // orange cable
+#define OLED_SDA 21 // blue cable
+#define OLED_SCL 22 // white cable
+#define OLED_RES 19 // yellow cable
+#define OLED_DC 18 // yellow cable
 
-#define RTC_SDA 16 // blau cable
-#define RTC_SCL 17 // green cable
+#define RTC_SDA 32 // white cable
+#define RTC_SCL 33 // blue cable
 
 #define SOIL_SENSOR_PIN 34
 
-#define DHT_PIN 4 
+#define DHT_PIN 13 
 #define DHT_TYPE DHT11
 
 #define BATTERY_VCC 35
 
 #define LED1 2
-#define LED2 13
+#define LED2 4
 
-#define PUMP_RELAY 14
-#define TANK_SENSOR 15
+#define PUMP_RELAY 16
+#define TANK_SENSOR 17
 
 #define MENU_SCROLL_INTERVAL (20UL * 1000UL) // 10 seconds
 
@@ -76,10 +102,8 @@
 enum screenStates{
 	TO_INFO_SCREEN,
 	INFO_SCREEN,
-
 	TO_MENU_SCREEN,
 	MENU_SCREEN,
-
 	MANUAL_WATERING
 };
 
@@ -204,13 +228,18 @@ bool rtcFAILED = false;
 
 unsigned long lastPrintMillis = 0; // TODO: delete
 
-// --------------- I2C OLED ---------------
-TwoWire WireOLED = TwoWire(0);
+
+//======================================
+//        SPI DISPLAY SETUP
+//======================================
+
+//TwoWire WireOLED = TwoWire(0);
 
 #define OLED_ADDR 0x3C
-#define SWIDTH 128
-#define SHEIGHT 64
-Adafruit_SSD1306 display(SWIDTH, SHEIGHT, &WireOLED, -1);
+#define SCREEN_WIDTH 128
+#define SCREEN_HEIGHT 64
+//Adafruit_SSD1306 display(SCREEN_WIDTH, SCREEN_HEIGHT, &WireOLED, -1);
+Adafruit_SSD1306 display(SCREEN_WIDTH, SCREEN_HEIGHT, OLED_SDA, OLED_SCL, OLED_DC, OLED_RES, -1);
 // textSize, charW, charH
 // 1				 6			8
 // 2				 12			16
@@ -230,17 +259,25 @@ RTC_DS1307 rtc;
 DHT dht(DHT_PIN, DHT_TYPE);
 
 
+/**
+ * @brief Arduino setup function. Init of all components, peripherals and variables.
+ * Also contains loading animation for OLED. Safety checks are performed for 
+ * RTC module and OLED. Based on RTC availability, some features may be disabled
+ * and user is informed on the display. 
+ * @warning If OLED initialization fails, the system will halt in an infinite loop.
+ * 
+ */
 void setup() {
 
 	// --------------- CORE SETUP ---------------
-	Serial.begin(9600);
+	DEBUG_BEGIN(9600);
 	//delay(2000);
-	Serial.println("Boot successful.");
+	DEBUG_PRINTLN("Boot successful.");
 	setCpuFrequencyMhz(80);
 
-	Serial.print("CPU running at: ");
-	Serial.print(getCpuFrequencyMhz());
-	Serial.println(" Mhz.");
+	DEBUG_PRINT("CPU running at: ");
+	DEBUG_PRINT(getCpuFrequencyMhz());
+	DEBUG_PRINTLN(" Mhz.");
 
 	// --------------- PIN MODES ---------------
 	pinMode(b1, INPUT_PULLUP);
@@ -261,11 +298,12 @@ void setup() {
 	analogSetWidth(12); 
 
 
-	// --------------- I2C OLED INIT ---------------
-	WireOLED.begin(OLED_SDA, OLED_SCL);
-	WireOLED.setClock(100000);
-  if(!display.begin(SSD1306_SWITCHCAPVCC, OLED_ADDR)) {
-    Serial.println(F("Failed to initialize OLED!"));
+	// --------------- SPI OLED INIT ---------------
+	//WireOLED.begin(OLED_SDA, OLED_SCL);
+	//WireOLED.setClock(100000);
+  if(!display.begin(SSD1306_SWITCHCAPVCC, 0x3D)) {
+    DEBUG_PRINTLN(F("Failed to initialize OLED!"));
+    for(;;);
   } else {
 		display.ssd1306_command(SSD1306_DISPLAYOFF);
 		delay(100);  // small delay to ensure it works
@@ -273,13 +311,13 @@ void setup() {
 		display.clearDisplay();
 		display.setTextSize(defaultTextSize);
 		display.setTextColor(defaultDisplayColor);
-    Serial.println(F("OLED init successful."));
+    DEBUG_PRINTLN(F("OLED init successful."));
 	}
 
 	// --------------- I2C RTC INIT ---------------
   WireRTC.begin(RTC_SDA, RTC_SCL);
 	if (!rtc.begin(&WireRTC)) {
-		Serial.println(F("Failed to initialize RTC!"));
+		DEBUG_PRINTLN(F("Failed to initialize RTC!"));
 		display.clearDisplay();
 		display.setCursor(0,16);
 		display.print("RTC fail");
@@ -290,12 +328,12 @@ void setup() {
 		display.display();
 		delay(2000);
   } else {
-		Serial.println(F("RTC init successful."));
+		DEBUG_PRINTLN(F("RTC init successful."));
 	}
 
 	//if (!rtc.isrunning() && !rtcFAILED) {
-  //  Serial.println(F("RTC was not running, check battery."));
-  //  Serial.println(F("Setting RTC time."));
+  //  DEBUG_PRINTLN(F("RTC was not running, check battery."));
+  //  DEBUG_PRINTLN(F("Setting RTC time."));
 	//	rtc.adjust(DateTime(2004, 5, 14, 0, 0, 0));
   //}
 
@@ -378,7 +416,11 @@ void setup() {
 }
 
 
-
+/**
+ * @brief Arduino main loop funtion.
+ * Handles button input, sensor reading, watering logic, display updates, 
+ * screen state management, sleep management.
+ */
 void loop() {
 
 	handleButtons();
@@ -387,16 +429,16 @@ void loop() {
 
 	readBatteryADC();
 
-	if(!digitalRead(TANK_SENSOR)){
+	if(digitalRead(TANK_SENSOR)){
 		digitalWrite(LED2, HIGH);
-		//Serial.println("Empty tank!");
+		//DEBUG_PRINTLN("Empty tank!");
 		digitalWrite(PUMP_RELAY, LOW);
 	} else {
 		digitalWrite(LED2, LOW);
 		//digitalWrite(LED1, LOW);
 	}
 
-	if(battery_voltage < 4.00){
+	if(battery_voltage < 3.40){
 		digitalWrite(LED1, HIGH);
 	} else {
 		digitalWrite(LED1, LOW);
@@ -407,26 +449,26 @@ void loop() {
 	}
 
 	//float batteryVoltage = analogRead(BATTERY_VCC);
-	//Serial.println(batteryVoltage);
+	//DEBUG_PRINTLN(batteryVoltage);
 
 	//float teplota = dht.readTemperature();
   //float vlhkost = dht.readHumidity();
 //
 	//if (isnan(teplota) || isnan(vlhkost)) {
-  //  Serial.println("Chyba při čtení z DHT senzoru!");
+  //  DEBUG_PRINTLN("Chyba při čtení z DHT senzoru!");
   //  return;
   //}
 
-	//Serial.print("Teplota: ");
-  //Serial.print(teplota);
-  //Serial.println(" °C");
+	//DEBUG_PRINT("Teplota: ");
+  //DEBUG_PRINT(teplota);
+  //DEBUG_PRINTLN(" °C");
 //
-  //Serial.print("Vlhkost: ");
-  //Serial.print(vlhkost);
-  //Serial.println(" %");
+  //DEBUG_PRINT("Vlhkost: ");
+  //DEBUG_PRINT(vlhkost);
+  //DEBUG_PRINTLN(" %");
 
-	//if(!digitalRead(TANK_SENSOR)){
-	//	Serial.println("Prazdna nadrz!");
+	//if(digitalRead(TANK_SENSOR)){
+	//	DEBUG_PRINTLN("Prazdna nadrz!");
 	//}
 
 	switch(screenState) {
@@ -467,12 +509,12 @@ void loop() {
 
 			//if(millis() - lastPrintMillis >= 10000) {
 			//	lastPrintMillis = millis();
-			//	Serial.printf("Last watering timestamp: %lu\n", last_watering_timestamp);
-			//	Serial.printf("Next watering should be: %lu\n", last_watering_timestamp + (per_days * 86400UL));
+			//	DEBUG_PRINTF("Last watering timestamp: %lu\n", last_watering_timestamp);
+			//	DEBUG_PRINTF("Next watering should be: %lu\n", last_watering_timestamp + (per_days * 86400UL));
 			//}
 
 			if(b4_pressed){
-				if(!b4_holdActive && digitalRead(TANK_SENSOR)) {
+				if(!b4_holdActive && !digitalRead(TANK_SENSOR)) {
 					b4_holdStart = millis();
 					b4_holdActive = true;
 				} else if (millis() - b4_holdStart >= 1000) {
@@ -521,7 +563,7 @@ void loop() {
 		case MANUAL_WATERING:
 			lastSystemInteraction = millis();
 
-			if(!digitalRead(TANK_SENSOR)) {
+			if(digitalRead(TANK_SENSOR)) {
 				//safety shutoff
 				digitalWrite(PUMP_RELAY, LOW);
 				digitalWrite(LED2, HIGH);
@@ -570,6 +612,11 @@ void loop() {
 	}
 }
 
+
+/**
+ * @brief Handles drawing of the main info screen and all of its pages.
+ * Based on the current mainMenuState, different information is drawn on the display.
+ */
 void handleMainMenu() {
   
 	display.clearDisplay();
@@ -657,12 +704,13 @@ void handleMainMenu() {
 			break;
 		}
 
-		case BATTERY_INFO:{
+		case BATTERY_INFO: {
 
 			printAlignedText(&display, "Battery", 2, 10, 1, 0);
 
 			char dhtSecondLine[10];
-			snprintf(dhtSecondLine, sizeof(dhtSecondLine), "%.2fV", battery_voltage); // battery_percent
+			//snprintf(dhtSecondLine, sizeof(dhtSecondLine), "%.2fV", battery_voltage); // battery_percent
+			snprintf(dhtSecondLine, sizeof(dhtSecondLine), "%d%%", battery_percent); // battery_percent
     	printAlignedText(&display, dhtSecondLine, 2, 33, 1, 0);
 
 			break;
@@ -701,6 +749,17 @@ void handleMainMenu() {
   display.display();
 }
 
+
+/**
+ * @brief Handles both of the automatic watering modes.
+ * In periodical mode, this function checks last time of watering
+ * and compares it to the current time. If the set period has passed,
+ * watering starts.
+ * In sensor mode, soil moisture is continuously monitored and compared
+ * to the set threshold. If the soil is too dry, watering starts.
+ * @warning This function does not handle the manual watering mode, 
+ * which is triggered whenever by holding the b4 button on the info screen.
+ */
 void handleWatering(){
 
 	if (wateringMode == 1) {
@@ -716,12 +775,12 @@ void handleWatering(){
 			if(newTarget.unixtime() > now_ts) {
 				// Dnes tento cas jeste nebyl, takze se nastavi timestamp tak, aby se zalevalo dnes
 				last_watering_timestamp = newTarget.unixtime() - (per_days * 86400);
-				Serial.printf("RESET: Nastavuji last_watering_timestamp aby se zalevalo dnes v %02d:%02d:%02d.\nTimestamp: %d.\n", newTarget.hour(), newTarget.minute(), newTarget.second(), last_watering_timestamp);
+				DEBUG_PRINTF("RESET: Nastavuji last_watering_timestamp aby se zalevalo dnes v %02d:%02d:%02d.\nTimestamp: %d.\n", newTarget.hour(), newTarget.minute(), newTarget.second(), last_watering_timestamp);
 			} else {
 				// dnes uz cas byl, po resetu se ale nastavi nejblizsi dalsi hodina a minuta zalevani, bezprostredne dalsi den
 				last_watering_timestamp = newTarget.unixtime() - (per_days * 86400) + 86400;
 
-				Serial.printf("RESET: Jiz je po case dnesniho zalevani, nastavuji zavlazovani bezprostredne na zitra %02d:%02d:%02d.\nTimestamp:", newTarget.hour(), newTarget.minute(), newTarget.second(), last_watering_timestamp);
+				DEBUG_PRINTF("RESET: Jiz je po case dnesniho zalevani, nastavuji zavlazovani bezprostredne na zitra %02d:%02d:%02d.\nTimestamp:", newTarget.hour(), newTarget.minute(), newTarget.second(), last_watering_timestamp);
 			}
 
 			prefs.begin("settings", false);
@@ -737,7 +796,7 @@ void handleWatering(){
 				DateTime next_watering = last_watering + TimeSpan(per_days * 86400);
 
 				if (now_ts >= next_watering.unixtime() && wateringMode == 1) {
-					Serial.printf("Jde se zalevat. Last_watering: %d, Next_watering: %d, Now: %d.\n", last_watering.unixtime(), next_watering.unixtime(), now_ts);
+					DEBUG_PRINTF("Jde se zalevat. Last_watering: %d, Next_watering: %d, Now: %d.\n", last_watering.unixtime(), next_watering.unixtime(), now_ts);
 
 					display.clearDisplay();
 					printAlignedText(&display, "Watering", 2, 24, 1, 0);
@@ -764,7 +823,7 @@ void handleWatering(){
 					digitalWrite(PUMP_RELAY, LOW);
 					periodicalWateringState = PERIODICAL_COMPLETE;
 				} else {
-					if (!digitalRead(TANK_SENSOR)){
+					if (digitalRead(TANK_SENSOR)){
 						digitalWrite(PUMP_RELAY, LOW);
 						digitalWrite(LED2, HIGH);
 
@@ -791,7 +850,7 @@ void handleWatering(){
 					periodicalWateringState = PERIODICAL_COMPLETE;
 					break;
 				}
-				if(digitalRead(TANK_SENSOR)) {
+				if(!digitalRead(TANK_SENSOR)) {
 					//nadrz doplnena
 					digitalWrite(LED2, LOW);
 					digitalWrite(PUMP_RELAY, HIGH);
@@ -810,9 +869,9 @@ void handleWatering(){
 				DateTime newTimestamp(now.year(), now.month(), now.day(), h_watering_time, m_watering_time, 0);
 				last_watering_timestamp = newTimestamp.unixtime(); 
 
-				Serial.printf("Zavlazovani dokonceno. Novy timestamp nastaven na %d\n", last_watering_timestamp);
+				DEBUG_PRINTF("Zavlazovani dokonceno. Novy timestamp nastaven na %d\n", last_watering_timestamp);
 
-				Serial.printf("Dalsi zalevani tak probehne za %d dny.\nJe to ok?\n", per_days);
+				DEBUG_PRINTF("Dalsi zalevani tak probehne za %d dny.\nJe to ok?\n", per_days);
 
 				//prefs.begin("settings", false);
 				//prefs.putUInt("w_ts", last_watering_timestamp);
@@ -825,7 +884,7 @@ void handleWatering(){
 		//sensor based
 
 		if(sampleIndex < 0) {
-			Serial.println("ADC ma nevalidni hodnotu.");
+			DEBUG_PRINTLN("ADC ma nevalidni hodnotu.");
 			return; // nutno pockat, dokud ADC poprve nepoda validni hodnotu
 		}
 
@@ -835,14 +894,14 @@ void handleWatering(){
 				
 				if (millis() - moistureCooldownStartTime < MOISTURE_MODE_COOLDOWN) {
 					// jeste porad nevyprsel cooldown
-					Serial.println("Cooldown.");
+					DEBUG_PRINTLN("Cooldown.");
 					break;
 				}
 
 				if(soil_moisture > adcLowThreshold) {
-					Serial.println("Detekovano zalevani.");
+					DEBUG_PRINTLN("Detekovano zalevani.");
 
-					if (!digitalRead(TANK_SENSOR)) {
+					if (digitalRead(TANK_SENSOR)) {
 						// nadrz je prazdna
 						return;
 					} else {
@@ -867,7 +926,7 @@ void handleWatering(){
 					break;
 				}
 
-				if (!digitalRead(TANK_SENSOR)) {
+				if (digitalRead(TANK_SENSOR)) {
 					digitalWrite(PUMP_RELAY, LOW);
 					digitalWrite(LED2, HIGH);
 					moistureWateringState = MOISTURE_COMPLETE;
@@ -890,7 +949,7 @@ void handleWatering(){
 				break;
 
 			case MOISTURE_COMPLETE:
-				Serial.println("Zalevani dokonceno.");
+				DEBUG_PRINTLN("Zalevani dokonceno.");
 				lastSystemInteraction = millis();
 				digitalWrite(PUMP_RELAY, LOW);
 				moistureCooldownStartTime = millis();
@@ -900,6 +959,20 @@ void handleWatering(){
 	}  
 }
 
+
+/**
+ * @brief This function manages the deep sleep of device. 
+ * If deep sleep is enabled and RTC is functional, the function
+ * sets the device to sleep based on current watering mode.
+ * In periodical mode, the sleep duration is calculated based on
+ * the next scheduled watering time.
+ * In sensor mode, the device always sleeps for 1 hour before
+ * waking up and checking the soil moisture again.
+ * In manual mode, the device goes to sleep indefinitely until
+ * the user wakes it up by pressing the b4 button.
+ * @warning During deep sleep, the device can only be woken up
+ * by the b4 button.
+ */
 void handleSleep(){
 	// pokud je deepSleep == true
 	if (!deepSleep || rtcFAILED) return;
@@ -931,13 +1004,13 @@ void handleSleep(){
 			sleepDurationUs = 3600000000ULL; // 1 hodina
 		} else if (wateringMode == 0) {
 			// MANUAL rezim => spi porad dokud neni vzbuzeno
-			Serial.printf("Jdu spat dokud me nekdo neprobudi\n");
+			DEBUG_PRINTF("Jdu spat dokud me nekdo neprobudi\n");
 			display.clearDisplay();
 			printAlignedText(&display, "Sleep", 2, 10, 1, 0);
 			printAlignedText(&display, "push B4 to wake up", 1, 57, 1, 0);
 			display.display();
 
-			esp_sleep_enable_ext0_wakeup(GPIO_NUM_26, 0); // probudit na low == 0
+			esp_sleep_enable_ext0_wakeup(GPIO_NUM_14, 0); // probudit na low == 0
 			delay(4000);
 			display.clearDisplay();
 			display.display();
@@ -949,7 +1022,7 @@ void handleSleep(){
 			uint64_t sleepDurationSec = sleepDurationUs / 1000000ULL;
 			uint32_t hours = sleepDurationSec / 3600;
 			uint32_t minutes = (sleepDurationSec % 3600) / 60;
-			Serial.printf("Jdu spat na %d hodin\n", hours);
+			DEBUG_PRINTF("Jdu spat na %d hodin\n", hours);
 
 			char sleepText[20];
 			if(hours >= 1) {
@@ -975,11 +1048,17 @@ void handleSleep(){
 	}
 }
 
+
+/**
+ * @brief Reads the soil moisture senzor value and
+ * stores it in a buffer. Once the buffer is full, the average
+ * soil moisture value is calculated and stored in the soil_moisture variable.
+ */
 void readSoilMoistureADC() {
-	//plne ponoreny ve vode = 1050
-	//mimo vodu a suchy = 1750 u kvetinace senzoru, 2750 u druheho senzoru. Wtf
+	//sensor fully submerged in water = 1050
+	//sensor out of water and dry = 1750
 	int adcValue = analogRead(SOIL_SENSOR_PIN);
-	//Serial.println(adcValue);
+	//DEBUG_PRINTLN(adcValue);
 	//if(adcValue < 50 || adcValue > 3950){
 	//	//issue;
 	//}
@@ -996,13 +1075,21 @@ void readSoilMoistureADC() {
 		}
 		soil_moisture = sum / SAMPLE_COUNT;
 
-		//Serial.printf("Prumer: %d, ADC skutecne: %d\n", soil_moisture, adcValue);
-		//Serial.print("Soil: ");
-		//Serial.println(soil_moisture);
-		//Serial.printf("Low: %d, high: %d, lowADC: %d, highADC: %d\n", lowThreshold, highThreshold, adcLowThreshold, adcHighThreshold);
+		//DEBUG_PRINTF("Prumer: %d, ADC skutecne: %d\n", soil_moisture, adcValue);
+		//DEBUG_PRINT("Soil: ");
+		//DEBUG_PRINTLN(soil_moisture);
+		//DEBUG_PRINTF("Low: %d, high: %d, lowADC: %d, highADC: %d\n", lowThreshold, highThreshold, adcLowThreshold, adcHighThreshold);
 	}
 }
 
+
+/**
+ * @brief Converts a given soil moisture percentage to the corresponding ADC value.
+ * The conversion is based on the defined DRY_SOIL and WET_SOIL ADC values.
+ * Higher percentage means wetter soil, which corresponds to a lower ADC value.
+ * @param percent The soil moisture percentage to convert (int 0-100).
+ * @return The corresponding ADC value.
+ */
 int moisturePercentToAdc(int percent) {
 	// jistota je jistota
 	percent = constrain(percent, 0, 100);
@@ -1011,6 +1098,15 @@ int moisturePercentToAdc(int percent) {
 	return DRY_SOIL - ((DRY_SOIL - WET_SOIL) * percent) / 100;
 }
 
+
+/**
+ * @brief Converts an ADC value from the soil moisture sensor to a percentage
+ * representing the soil moisture level.
+ * The conversion is based on the defined DRY_SOIL and WET_SOIL ADC values.
+ * Higher ADC values correspond to drier soil, which results in a lower percentage.
+ * @param adcValue The ADC value to convert (int).
+ * @return The corresponding soil moisture percentage.
+ */
 int adcToMoisturePercent(int adcValue) {
   // Omezit na rozsah
   adcValue = constrain(adcValue, WET_SOIL, DRY_SOIL);
@@ -1019,41 +1115,55 @@ int adcToMoisturePercent(int adcValue) {
   return ((DRY_SOIL - adcValue) * 100) / (DRY_SOIL - WET_SOIL);
 }
 
+
+/**
+ * @brief Reads the battery voltage from the sensor and 
+ * stores it in a buffer. Once the buffer is full, the average
+ * battery voltage is calculated and stored in the battery_voltage variable.
+ * @warning The voltage is calculated based on a linear approximation.
+ * @todo This function is a mess and does not show proper values. Needs
+ * to be reworked and calibrated properly.
+ */
 void readBatteryADC(){
-	int adcValue = analogRead(BATTERY_VCC);
-	battery_adc_buffer[battery_sample_index] = adcValue;
-	battery_sample_index++;
-	//if(adcValue < 50 || adcValue > 3950){
-	//	//issue;
-	//}
+  int adcValue = analogRead(BATTERY_VCC);
+  battery_adc_buffer[battery_sample_index] = adcValue;
+  battery_sample_index++;
 
-	if (battery_sample_index >= BATTERY_SAMPLE_COUNT) {
-		battery_sample_index = 0;
+  if (battery_sample_index >= BATTERY_SAMPLE_COUNT) {
+    battery_sample_index = 0;
 
-		long sum = 0;
-		for (int i = 0; i < BATTERY_SAMPLE_COUNT; i++) {
-			sum += battery_adc_buffer[i];
-		}
-		int avg_adc = sum / BATTERY_SAMPLE_COUNT;
+    long sum = 0;
+    for (int i = 0; i < BATTERY_SAMPLE_COUNT; i++) {
+      sum += battery_adc_buffer[i];
+    }
+    int avg_adc = sum / BATTERY_SAMPLE_COUNT;
 
-		float v_adc = (avg_adc / 4095.0) * 3.3;
+    // 1. Převod ADC hodnoty na napětí na pinu (předpoklad 12bit rozlišení a 3.3V logika)
+    float v_adc = (avg_adc / 4095.0) * 3.3;
 
-		battery_voltage = (v_adc * 2.0)+0.10;
+    // 2. Přepočet přes odporový dělič modulu (typicky 1:5)
+    // Pokud je hodnota trochu nepřesná, uprav číslo 5.0 nahoru nebo dolů (např. 5.12),
+    // abys dorovnal toleranci rezistorů na modulu a nepřesnost vnitřní reference ESP32.
+    battery_voltage = v_adc * 6.06; 
 
-		battery_percent = (battery_voltage - 3.0) / (4.2 - 3.0) * 100.0;
-		battery_percent = constrain(battery_percent, 0, 99);
+    // Percent count (Li-Ion 3.0V to 4.2V)
+    battery_percent = (battery_voltage - 3.0) / (4.2 - 3.0) * 100.0;
+    battery_percent = constrain(battery_percent, 0, 99);
 
-		// debug výstup
-		//Serial.print("Battery voltage: ");
-		//Serial.print(battery_voltage);
-		//Serial.print(" V, ");
-		//Serial.print("Battery level: ");
-		//Serial.print(battery_percent);
-		//Serial.println(" %");
-	}
+    // debug výstup
+    DEBUG_PRINT("Battery voltage: ");
+    DEBUG_PRINT(battery_voltage);
+    DEBUG_PRINT(" V, ");
+    DEBUG_PRINT("Battery level: ");
+    DEBUG_PRINT(battery_percent);
+    DEBUG_PRINTLN(" %");
+  }
 }
 
 
+/**
+ * @brief Handles states of all the buttons, including debounce and long press.
+ */
 void handleButtons() {
 	now = millis();
 
@@ -1069,7 +1179,7 @@ void handleButtons() {
 		lastInteraction = millis();
 		lastSystemInteraction = millis();
 		lastMenuScrollTime = millis();
-    if (b1_push) Serial.println("b1 pressed");
+    if (b1_push) DEBUG_PRINTLN("b1 pressed");
   } else {
     b1_push = false;
   }
@@ -1081,7 +1191,7 @@ void handleButtons() {
 		lastInteraction = millis();
 		lastSystemInteraction = millis();
 		lastMenuScrollTime = millis();
-    if (b2_push) Serial.println("b2 pressed");
+    if (b2_push) DEBUG_PRINTLN("b2 pressed");
   } else {
     b2_push = false;
   }
@@ -1093,7 +1203,7 @@ void handleButtons() {
 		lastInteraction = millis();
 		lastSystemInteraction = millis();
 		lastMenuScrollTime = millis();
-    if (b3_push) Serial.println("b3 pressed");
+    if (b3_push) DEBUG_PRINTLN("b3 pressed");
   } else {
     b3_push = false;
   }
@@ -1105,13 +1215,18 @@ void handleButtons() {
 		lastInteraction = millis();
 		lastSystemInteraction = millis();
 		lastMenuScrollTime = millis();
-    if (b4_push) Serial.println("b4 pressed");
+    if (b4_push) DEBUG_PRINTLN("b4 pressed");
   } else {
     b4_push = false;
   }
 }
 
-// Funkce pro animaci načítajícího kolečka s tlustšími čarami
+
+/** 
+ * @brief Draws a loading circle on the display. 
+ * @param display Reference to the display object to draw on.
+ * @param step The step in the animation sequence.
+ */
 void drawLoadingCircle(Adafruit_SSD1306& display, int step) {
     display.clearDisplay();
     int radius = 10;  // Poloměr kolečka

@@ -1,3 +1,11 @@
+/**
+ * @file MenuItem.h
+ * @brief File responsible for the menu item system of the ESP32-powered smart flowerpot.
+ * This file defines the MenuItem class.
+ * @author ddeejjvviidd
+ * @date 2026-04-08
+ */
+
 #ifndef MENU_ITEM_H
 #define MENU_ITEM_H
 
@@ -7,6 +15,11 @@
 
 extern Preferences prefs;
 
+/**
+ * @brief The MenuItem class is an abstract base class for all menu items in the menu system.
+ * Each menu item must implement the pure virtual functions defined in this class.
+ * @class MenuItem 
+ */
 class MenuItem {
 private:
 
