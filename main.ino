@@ -1010,7 +1010,7 @@ void handleSleep(){
 			printAlignedText(&display, "push B4 to wake up", 1, 57, 1, 0);
 			display.display();
 
-			esp_sleep_enable_ext0_wakeup(GPIO_NUM_26, 0); // probudit na low == 0
+			esp_sleep_enable_ext0_wakeup(GPIO_NUM_14, 0); // probudit na low == 0
 			delay(4000);
 			display.clearDisplay();
 			display.display();
