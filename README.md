@@ -15,20 +15,21 @@ This repository contains a code I made in Arduino IDE for ESP32 for my smart sel
 
 ## Schemes
 
-<img src="res/ESP32scheme.jpg">
+<img width="666" src="res/ESP32scheme.jpg">
 
 ## Technology used
 
-Whole flower pot body was designed in Fusion 360 and printed on Creality Ender 3 V1, using black PLA+. 
+Whole flower pot body was designed in Fusion 360 and printed on Bambulab A1, using black generic PETG. 
 
 Water tank was sprayed with clear coat to seal all potentional leaks.
 
 Firmware was developed in Arduino IDE. Flower pot uses an ESP32-DevKitC 38pin. 
 
-## Final product v1
+## Final product v2
 
-<img src="https://github.com/user-attachments/assets/fe158988-56d6-4b79-92fe-65a1defdb861" width="450px">
+<img width="666" alt="flowerpot_with_flower" src="https://github.com/user-attachments/assets/89a26a32-3d8c-4ab7-b7b9-92d67b011f97" />
 <br>
-<img src="https://github.com/user-attachments/assets/e1671341-a983-4e18-a914-7a807937fe91" width="450px">
+<img width="666" alt="flowerpot_without_flower" src="https://github.com/user-attachments/assets/d5171489-71b6-4f9a-9779-b34cb2f8f1e1" />
 <br>
-<img src="https://github.com/user-attachments/assets/215e20f4-b8ea-46ab-9abf-a560fe17f261" width="450px">
+<img width="666" alt="tech_deck" src="https://github.com/user-attachments/assets/1475e86e-a2df-4563-baa9-9ea34734b80c" />
+
